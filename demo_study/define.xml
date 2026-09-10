@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Synthetic demo define.xml (CDISC Define-XML 2.0 structure) for trace.py.
+     Generated 2026-09-09. Not a real study. -->
+<ODM xmlns="http://www.cdisc.org/ns/odm/v1.3"
+     xmlns:def="http://www.cdisc.org/ns/def/v2.0"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     ODMVersion="1.3.2" FileOID="TRACE.DEMO.001" FileType="Snapshot"
+     CreationDateTime="2026-09-09T00:00:00">
+  <Study OID="TRACE-DEMO">
+    <GlobalVariables>
+      <StudyName>Traceability demo study</StudyName>
+      <StudyDescription>Synthetic study for the trace.py prototype</StudyDescription>
+      <ProtocolName>TRACE-001</ProtocolName>
+    </GlobalVariables>
+    <MetaDataVersion OID="MDV.TRACE-DEMO" Name="Demo metadata" DefineVersion="2.0.0">
+      <def:leaf ID="LF.DM" xlink:href="dm.xpt">
+        <def:title>dm.xpt</def:title>
+      </def:leaf>
+      <def:leaf ID="LF.AE" xlink:href="ae.xpt">
+        <def:title>ae.xpt</def:title>
+      </def:leaf>
+      <def:leaf ID="LF.ADSL" xlink:href="adsl.xpt">
+        <def:title>adsl.xpt</def:title>
+      </def:leaf>
+
+      <!-- ===================== SDTM: DM ===================== -->
+      <ItemGroupDef OID="IG.DM" Name="DM" Domain="DM" SASDatasetName="DM"
+          Repeating="No" IsReferenceData="No" Purpose="Tabulation"
+          def:Class="SPECIAL PURPOSE"
+          def:Structure="One record per subject"
+          def:ArchiveLocationID="LF.DM">
+        <Description><TranslatedText xml:lang="en">Demographics</TranslatedText></Description>
+        <ItemRef ItemOID="IT.DM.USUBJID" OrderNumber="1" Mandatory="Yes" KeySequence="1"/>
+        <ItemRef ItemOID="IT.DM.AGE" OrderNumber="2" Mandatory="No"/>
+        <ItemRef ItemOID="IT.DM.SEX" OrderNumber="3" Mandatory="No"/>
+        <ItemRef ItemOID="IT.DM.RACE" OrderNumber="4" Mandatory="No"/>
+      </ItemGroupDef>
+
+      <!-- ===================== SDTM: AE ===================== -->
+      <ItemGroupDef OID="IG.AE" Name="AE" Domain="AE" SASDatasetName="AE"
+          Repeating="Yes" IsReferenceData="No" Purpose="Tabulation"
+          def:Class="EVENTS"
+          def:Structure="One record per adverse event per subject"
+          def:ArchiveLocationID="LF.AE">
+        <Description><TranslatedText xml:lang="en">Adverse Events</TranslatedText></Description>
+        <ItemRef ItemOID="IT.AE.USUBJID" OrderNumber="1" Mandatory="Yes" KeySequence="1"/>
+        <ItemRef ItemOID="IT.AE.AETERM" OrderNumber="2" Mandatory="Yes"/>
+      </ItemGroupDef>
+
+      <!-- ===================== ADaM: ADSL ===================== -->
+      <ItemGroupDef OID="IG.ADSL" Name="ADSL" SASDatasetName="ADSL"
+          Repeating="No" IsReferenceData="No" Purpose="Analysis"
+          def:Class="ADAM"
+          def:Structure="One record per subject"
+          def:ArchiveLocationID="LF.ADSL">
+        <Description><TranslatedText xml:lang="en">Subject-Level Analysis Dataset</TranslatedText></Description>
+        <ItemRef ItemOID="IT.ADSL.USUBJID" OrderNumber="1" Mandatory="Yes" KeySequence="1"/>
+        <ItemRef ItemOID="IT.ADSL.AGE" OrderNumber="2" Mandatory="No" MethodOID="MT.ADSL.AGE"/>
+        <ItemRef ItemOID="IT.ADSL.SEX" OrderNumber="3" Mandatory="No" MethodOID="MT.ADSL.SEX"/>
+        <ItemRef ItemOID="IT.ADSL.BMIGR1" OrderNumber="4" Mandatory="No"/>
+        <ItemRef ItemOID="IT.ADSL.SAFFL" OrderNumber="5" Mandatory="No" MethodOID="MT.ADSL.SAFFL"/>
+      </ItemGroupDef>
+
+      <!-- ===================== ItemDefs ===================== -->
+    <ItemDef OID="IT.DM.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
+      <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.DM.AGE" Name="AGE" DataType="integer" Length="8" SASFieldName="AGE">
+      <Description><TranslatedText xml:lang="en">Age</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.DM.SEX" Name="SEX" DataType="text" Length="1" SASFieldName="SEX">
+      <Description><TranslatedText xml:lang="en">Sex</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.DM.RACE" Name="RACE" DataType="text" Length="20" SASFieldName="RACE">
+      <Description><TranslatedText xml:lang="en">Race</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.AE.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
+      <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.AE.AETERM" Name="AETERM" DataType="text" Length="40" SASFieldName="AETERM">
+      <Description><TranslatedText xml:lang="en">Reported Term for the Adverse Event</TranslatedText></Description>
+      <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.ADSL.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
+      <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>
+      <def:Origin Type="Predecessor"><def:Description><TranslatedText xml:lang="en">Copied from DM.USUBJID.</TranslatedText></def:Description></def:Origin>
+    </ItemDef>
+    <ItemDef OID="IT.ADSL.AGE" Name="AGE" DataType="integer" Length="8" SASFieldName="AGE">
+      <Description><TranslatedText xml:lang="en">Age</TranslatedText></Description>
+      <def:Origin Type="Derived"/>
+    </ItemDef>
+    <ItemDef OID="IT.ADSL.SEX" Name="SEX" DataType="text" Length="1" SASFieldName="SEX">
+      <Description><TranslatedText xml:lang="en">Sex</TranslatedText></Description>
+      <def:Origin Type="Derived"/>
+    </ItemDef>
+    <ItemDef OID="IT.ADSL.BMIGR1" Name="BMIGR1" DataType="text" Length="10" SASFieldName="BMIGR1">
+      <Description><TranslatedText xml:lang="en">BMI Group 1</TranslatedText></Description>
+      <def:Origin Type="Derived"/>
+    </ItemDef>
+    <ItemDef OID="IT.ADSL.SAFFL" Name="SAFFL" DataType="text" Length="1" SASFieldName="SAFFL">
+      <Description><TranslatedText xml:lang="en">Safety Population Flag</TranslatedText></Description>
+      <def:Origin Type="Derived"/>
+    </ItemDef>
+
+      <!-- ===================== MethodDefs ===================== -->
+      <def:MethodDef OID="MT.ADSL.AGE" Name="Age derivation" Type="Computation">
+        <Description><TranslatedText xml:lang="en">Derived directly from DM.AGE.</TranslatedText></Description>
+      </def:MethodDef>
+      <def:MethodDef OID="MT.ADSL.SEX" Name="Sex mapping" Type="Computation">
+        <Description><TranslatedText xml:lang="en">Mapped from DM.SEX.</TranslatedText></Description>
+      </def:MethodDef>
+      <def:MethodDef OID="MT.ADSL.SAFFL" Name="Safety flag derivation" Type="Computation">
+        <Description><TranslatedText xml:lang="en">Set to 'Y' when DM.FAKEVAR equals 'X'.</TranslatedText></Description>
+      </def:MethodDef>
+    </MetaDataVersion>
+  </Study>
+</ODM>

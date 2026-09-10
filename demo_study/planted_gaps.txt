@@ -1,0 +1,7 @@
+Planted gaps in demo_study (expect trace.py to flag all of these):
+(a) XPT_ONLY         DM.SITEID      in dm.xpt, missing from define.xml
+(b) DEFINE_ONLY      DM.RACE        in define.xml, missing from dm.xpt
+(c) DERIVED_NO_METHOD ADSL.BMIGR1   Origin=Derived, no MethodDef/description
+(d) DANGLING_REF     ADSL.SAFFL     derivation references DM.FAKEVAR (undefined)
+(e) NO_SDTM_PATH     ADSL.SAFFL     no predecessor chain reaches SDTM
+    NO_SDTM_PATH     ADSL.BMIGR1    (consequence of (c): nothing to trace)
