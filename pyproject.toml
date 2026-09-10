@@ -3,7 +3,7 @@ requires = ["setuptools>=61"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "trace-agent"
+name = "cdisc-trace-agent"
 version = "1.0.0"
 description = "Variable-level traceability checker for CDISC SDTM/ADaM submissions"
 readme = "README.md"

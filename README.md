@@ -2,7 +2,7 @@
 
 [![MIT License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Python 3.9+](https://img.shields.io/badge/python-3.9%2B-blue.svg)](https://www.python.org/)
-[![PyPI](https://img.shields.io/badge/pypi-trace--agent-orange.svg)](https://pypi.org/project/trace-agent/)
+[![PyPI](https://img.shields.io/badge/pypi-cdisc--trace--agent-orange.svg)](https://pypi.org/project/cdisc-trace-agent/)
 
 **Free, open-source tool that finds traceability gaps in CDISC submissions before the FDA does.**
 
@@ -16,7 +16,7 @@ source of findings in regulatory review.
 ## Install
 
 ```bash
-pip install trace-agent
+pip install cdisc-trace-agent
 ```
 
 Or from source:
