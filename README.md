@@ -22,7 +22,7 @@ pip install trace-agent
 Or from source:
 
 ```bash
-git clone https://github.com/giri/trace-agent.git
+git clone https://github.com/girishkankipati2-pixel/trace-agent.git
 cd trace-agent
 pip install -e .
 ```

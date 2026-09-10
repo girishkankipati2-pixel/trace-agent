@@ -29,7 +29,7 @@ dependencies = [
 trace-agent = "trace_agent:main"
 
 [project.urls]
-Homepage = "https://github.com/giri/trace-agent"
+Homepage = "https://github.com/girishkankipati2-pixel/trace-agent"
 
 [tool.setuptools]
 py-modules = ["trace_agent"]
