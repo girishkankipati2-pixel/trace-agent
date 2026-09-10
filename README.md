@@ -43,7 +43,7 @@ clickable lineage graph (click a node to highlight its lineage).
 
 ```bash
 python make_demo.py                                  # builds demo_study/
-python trace.py --study demo_study --out demo_report.html
+python trace_agent.py --study demo_study --out demo_report.html
 ```
 
 `demo_study/` is a tiny synthetic study (SDTM DM + AE, ADaM ADSL) with five

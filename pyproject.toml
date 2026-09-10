@@ -26,10 +26,10 @@ dependencies = [
 ]
 
 [project.scripts]
-trace-agent = "trace:main"
+trace-agent = "trace_agent:main"
 
 [project.urls]
 Homepage = "https://github.com/giri/trace-agent"
 
 [tool.setuptools]
-py-modules = ["trace"]
+py-modules = ["trace_agent"]
