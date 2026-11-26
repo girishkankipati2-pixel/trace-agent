@@ -22,6 +22,12 @@
       <def:leaf ID="LF.ADSL" xlink:href="adsl.xpt">
         <def:title>adsl.xpt</def:title>
       </def:leaf>
+      <def:leaf ID="LF.ACRF" xlink:href="acrf.pdf">
+        <def:title>acrf.pdf</def:title>
+      </def:leaf>
+      <def:leaf ID="LF.LB" xlink:href="lb.xpt">
+        <def:title>lb.xpt</def:title>
+      </def:leaf>
 
       <!-- ===================== SDTM: DM ===================== -->
       <ItemGroupDef OID="IG.DM" Name="DM" Domain="DM" SASDatasetName="DM"
@@ -34,6 +40,7 @@
         <ItemRef ItemOID="IT.DM.AGE" OrderNumber="2" Mandatory="No"/>
         <ItemRef ItemOID="IT.DM.SEX" OrderNumber="3" Mandatory="No"/>
         <ItemRef ItemOID="IT.DM.RACE" OrderNumber="4" Mandatory="No"/>
+        <ItemRef ItemOID="IT.DM.ETHNIC" OrderNumber="5" Mandatory="No"/>
       </ItemGroupDef>
 
       <!-- ===================== SDTM: AE ===================== -->
@@ -45,6 +52,18 @@
         <Description><TranslatedText xml:lang="en">Adverse Events</TranslatedText></Description>
         <ItemRef ItemOID="IT.AE.USUBJID" OrderNumber="1" Mandatory="Yes" KeySequence="1"/>
         <ItemRef ItemOID="IT.AE.AETERM" OrderNumber="2" Mandatory="Yes"/>
+        <ItemRef ItemOID="IT.AE.AEDECOD" OrderNumber="3" Mandatory="No"/>
+      </ItemGroupDef>
+
+      <!-- ===================== SDTM: LB ===================== -->
+      <ItemGroupDef OID="IG.LB" Name="LB" Domain="LB" SASDatasetName="LB"
+          Repeating="Yes" IsReferenceData="No" Purpose="Tabulation"
+          def:Class="FINDINGS"
+          def:Structure="One record per lab result per subject"
+          def:ArchiveLocationID="LF.LB">
+        <Description><TranslatedText xml:lang="en">Laboratory Test Results</TranslatedText></Description>
+        <ItemRef ItemOID="IT.LB.LBORRES" OrderNumber="1" Mandatory="No"/>
+        <ItemRef ItemOID="IT.LB.LBORRESU" OrderNumber="2" Mandatory="No"/>
       </ItemGroupDef>
 
       <!-- ===================== ADaM: ADSL ===================== -->
@@ -64,27 +83,43 @@
       <!-- ===================== ItemDefs ===================== -->
     <ItemDef OID="IT.DM.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
       <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>
-      <def:Origin Type="CRF"/>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF" PageRefs="2"/></def:Origin>
     </ItemDef>
     <ItemDef OID="IT.DM.AGE" Name="AGE" DataType="integer" Length="8" SASFieldName="AGE">
       <Description><TranslatedText xml:lang="en">Age</TranslatedText></Description>
-      <def:Origin Type="CRF"/>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF" PageRefs="2"/></def:Origin>
     </ItemDef>
     <ItemDef OID="IT.DM.SEX" Name="SEX" DataType="text" Length="1" SASFieldName="SEX">
       <Description><TranslatedText xml:lang="en">Sex</TranslatedText></Description>
-      <def:Origin Type="CRF"/>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF" PageRefs="2"/></def:Origin>
     </ItemDef>
     <ItemDef OID="IT.DM.RACE" Name="RACE" DataType="text" Length="20" SASFieldName="RACE">
       <Description><TranslatedText xml:lang="en">Race</TranslatedText></Description>
-      <def:Origin Type="CRF"/>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF" PageRefs="3"/></def:Origin>
+    </ItemDef>
+    <ItemDef OID="IT.DM.ETHNIC" Name="ETHNIC" DataType="text" Length="20" SASFieldName="ETHNIC">
+      <Description><TranslatedText xml:lang="en">Ethnicity</TranslatedText></Description>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF2" PageRefs="3"/></def:Origin>
     </ItemDef>
     <ItemDef OID="IT.AE.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
       <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>
-      <def:Origin Type="CRF"/>
+      <def:Origin Type="CRF"><def:DocumentRef leafID="LF.ACRF"/></def:Origin>
     </ItemDef>
     <ItemDef OID="IT.AE.AETERM" Name="AETERM" DataType="text" Length="40" SASFieldName="AETERM">
       <Description><TranslatedText xml:lang="en">Reported Term for the Adverse Event</TranslatedText></Description>
       <def:Origin Type="CRF"/>
+    </ItemDef>
+    <ItemDef OID="IT.AE.AEDECOD" Name="AEDECOD" DataType="text" Length="40" SASFieldName="AEDECOD">
+      <Description><TranslatedText xml:lang="en">Dictionary-Derived Term</TranslatedText></Description>
+      <def:Origin Type="Derived"/>
+    </ItemDef>
+    <ItemDef OID="IT.LB.LBORRES" Name="LBORRES" DataType="text" Length="20" SASFieldName="LBORRES">
+      <Description><TranslatedText xml:lang="en">Result or Finding in Original Units</TranslatedText></Description>
+      <def:Origin Type="eDT"><def:Description><TranslatedText xml:lang="en">Central laboratory transfer.</TranslatedText></def:Description></def:Origin>
+    </ItemDef>
+    <ItemDef OID="IT.LB.LBORRESU" Name="LBORRESU" DataType="text" Length="20" SASFieldName="LBORRESU">
+      <Description><TranslatedText xml:lang="en">Original Units</TranslatedText></Description>
+      <def:Origin Type="eDT"/>
     </ItemDef>
     <ItemDef OID="IT.ADSL.USUBJID" Name="USUBJID" DataType="text" Length="20" SASFieldName="USUBJID">
       <Description><TranslatedText xml:lang="en">Unique Subject Identifier</TranslatedText></Description>

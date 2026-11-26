@@ -5,3 +5,8 @@ Planted gaps in demo_study (expect trace.py to flag all of these):
 (d) DANGLING_REF     ADSL.SAFFL     derivation references DM.FAKEVAR (undefined)
 (e) NO_SDTM_PATH     ADSL.SAFFL     no predecessor chain reaches SDTM
     NO_SDTM_PATH     ADSL.BMIGR1    (consequence of (c): nothing to trace)
+(f) CRF_NO_DOCREF    AE.AETERM      Origin=CRF, no DocumentRef to an annotated CRF
+(g) CRF_NO_PAGE      AE.USUBJID     DocumentRef names no page
+(h) DOCREF_MISSING   DM.ETHNIC      DocumentRef leaf LF.ACRF2 is not defined
+(i) EDT_NO_SOURCE    LB.LBORRESU    Origin=eDT, no outside source named
+(j) SDTM_DERIVED_NO_METHOD AE.AEDECOD SDTM Origin=Derived, no MethodDef/description

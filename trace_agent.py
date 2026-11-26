@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-trace.py -- Clinical data traceability agent (v1 prototype).
+trace.py -- Clinical data traceability agent (v1.1.0).
 
 Given a study folder containing a CDISC define.xml (2.0/2.1) and SAS
 transport (XPT) datasets, this tool:
@@ -9,8 +9,10 @@ transport (XPT) datasets, this tool:
      incl. def:Origin), derivations (def:MethodDef) and the ItemRef ->
      MethodDef linkage (ItemRef/@MethodOID, per the Define-XML 2.0 spec).
   2. Reads the XPT datasets and compares them against define.xml.
-  3. Builds a variable-level lineage graph (ADaM <- SDTM <- aCRF/protocol).
-  4. Flags traceability gaps.
+  3. Builds a variable-level lineage graph (ADaM <- SDTM <- raw source).
+  4. Flags traceability gaps, including raw-leg gaps: a CRF origin with
+     no annotated-CRF link, a DocumentRef pointing at a missing document,
+     an eDT origin with no source named, and an undocumented SDTM derivation.
   5. Writes a single self-contained HTML report (inline SVG + JS).
 
 Usage:
@@ -105,13 +107,37 @@ def formal_expression_text(method_el):
 # define.xml parsing
 # ---------------------------------------------------------------------------
 
+def origin_docrefs(origin_el):
+    """DocumentRef children of a def:Origin element.
+
+    Each entry is {leaf_id, page, has_page}. A page reference counts as
+    present when the DocumentRef carries a PageRefs/PageRef attribute or a
+    PDFPageRef child naming pages (the 2.1 form)."""
+    refs = []
+    if origin_el is None:
+        return refs
+    for dr in children(origin_el, "DocumentRef"):
+        leaf_id = dr.get("leafID") or ""
+        page = dr.get("PageRefs") or dr.get("PageRef") or ""
+        if not page:
+            for pr in children(dr, "PDFPageRef"):
+                page = (pr.get("PageRefs") or pr.get("FirstPage")
+                        or pr.get("PageRef") or "")
+                if page:
+                    break
+        refs.append({"leaf_id": leaf_id, "page": page,
+                     "has_page": bool(page)})
+    return refs
+
+
 def parse_define(path):
     """Parse define.xml -> (datasets, variables, methods).
 
     datasets:  {DSNAME: {name, label, domain, role, xpt, var_order:[VARNAME]}}
     variables: {"DS.VAR": {dataset, name, label, dtype, length, origin_type,
-                           origin_desc, method_oid}}
+                           origin_desc, docrefs, method_oid}}
     methods:   {OID: {oid, name, type, description, formal}}
+    leaves:    {leafID: href} for every def:leaf in the file.
     role is 'ADAM' or 'SDTM' (def:Class wins; otherwise AD* name heuristic).
     """
     tree = etree.parse(path)
@@ -159,9 +185,11 @@ def parse_define(path):
             origin_el = child(el, "Origin")
             otype = ""
             odesc = ""
+            docrefs = []
             if origin_el is not None:
                 otype = origin_el.get("Type") or ""
                 odesc = desc_text(origin_el)
+                docrefs = origin_docrefs(origin_el)
             itemdefs[oid] = {
                 "oid": oid,
                 "name": (el.get("Name") or "").upper(),
@@ -170,6 +198,7 @@ def parse_define(path):
                 "length": el.get("Length") or "",
                 "origin_type": otype,
                 "origin_desc": odesc,
+                "docrefs": docrefs,
             }
 
     # ItemGroupDef elements: datasets and their ordered ItemRefs.
@@ -213,6 +242,7 @@ def parse_define(path):
                 "length": idef["length"],
                 "origin_type": idef["origin_type"],
                 "origin_desc": idef["origin_desc"],
+                "docrefs": idef["docrefs"],
                 "method_oid": method_oid,
             }
         datasets[name] = {
@@ -224,11 +254,39 @@ def parse_define(path):
             "var_order": var_order,
         }
 
-    return datasets, variables, methods
+    return datasets, variables, methods, leaves
 
 # ---------------------------------------------------------------------------
 # XPT reading
 # ---------------------------------------------------------------------------
+
+def collect_study_files(study_dir):
+    """(relative paths, basenames) of every file under study_dir, for
+    checking that DocumentRef leaves point at files in the package."""
+    rel, base = set(), set()
+    for root, _dirs, files in os.walk(study_dir):
+        for f in files:
+            p = os.path.relpath(os.path.join(root, f), study_dir)
+            rel.add(p.replace(os.sep, "/"))
+            base.add(f)
+    return rel, base
+
+
+def resolve_leaf_file(href, study_files):
+    """Is the file a leaf href points at present in the study folder?
+    Returns (found, kind) with kind 'local', 'external', or 'missing'.
+    External (http/https) documents cannot be verified locally and are
+    treated as present; the paper states that limit."""
+    if not href:
+        return False, "missing"
+    h = href.split("#")[0].split("?")[0].replace("\\", "/").lstrip("./").lstrip("/")
+    if re.match(r"^[a-zA-Z][a-zA-Z0-9+.-]*://", h):
+        return True, "external"
+    rel, base = study_files
+    if h in rel or os.path.basename(h) in base:
+        return True, "local"
+    return False, "missing"
+
 
 def find_xpt_files(study_dir):
     """Map UPPER(file stem) -> path for every *.xpt under study_dir[/xpt]."""
@@ -374,6 +432,17 @@ GAP_LABELS = {
     "DERIVED_NO_METHOD": "Origin=Derived but no derivation documented",
     "DANGLING_REF": "Derivation references undefined variable",
     "NO_SDTM_PATH": "No lineage path back to any SDTM variable",
+    # raw-leg classes (SDTM variables only): the source behind SDTM
+    "CRF_NO_DOCREF": "Origin=CRF but no annotated CRF link (DocumentRef)",
+    "CRF_NO_PAGE": "Annotated CRF link (DocumentRef) names no page",
+    "DOCREF_MISSING": "Annotated CRF link points at a document not in the package",
+    "EDT_NO_SOURCE": "Origin=eDT but no outside source named",
+    "SDTM_DERIVED_NO_METHOD": "SDTM Origin=Derived but no derivation documented",
+}
+
+RAW_GAP_CODES = {
+    "CRF_NO_DOCREF", "CRF_NO_PAGE", "DOCREF_MISSING",
+    "EDT_NO_SOURCE", "SDTM_DERIVED_NO_METHOD",
 }
 
 
@@ -387,8 +456,11 @@ def method_documented(var, methods):
     return bool(var["origin_desc"].strip())
 
 
-def detect_gaps(datasets, variables, methods, pred, xpt_vars):
+def detect_gaps(datasets, variables, methods, pred, xpt_vars, leaves=None,
+                study_files=None):
     gaps = []
+    leaves = leaves or {}
+    study_files = study_files or (set(), set())
 
     def add(code, dataset, variable, detail):
         gaps.append({"code": code, "label": GAP_LABELS[code],
@@ -427,6 +499,42 @@ def detect_gaps(datasets, variables, methods, pred, xpt_vars):
             add("NO_SDTM_PATH", ds, var["name"],
                 "no predecessor chain reaches any SDTM variable")
 
+    # (f)-(j): raw-leg checks (SDTM variables only) -- the source behind SDTM
+    for vkey, var in variables.items():
+        ds = var["dataset"]
+        if datasets[ds]["role"] == "ADAM":
+            continue
+        ot = var["origin_type"]
+        if ot == "CRF":
+            if not var["docrefs"]:
+                add("CRF_NO_DOCREF", ds, var["name"],
+                    "Origin is 'CRF' but no DocumentRef links it to an annotated CRF")
+            else:
+                for dr in var["docrefs"]:
+                    if not dr["has_page"]:
+                        add("CRF_NO_PAGE", ds, var["name"],
+                            "DocumentRef (leaf %s) names no page"
+                            % (dr["leaf_id"] or "?"))
+                    elif dr["leaf_id"] not in leaves:
+                        add("DOCREF_MISSING", ds, var["name"],
+                            "DocumentRef leaf %s is not defined in define.xml"
+                            % dr["leaf_id"])
+                    else:
+                        found, _kind = resolve_leaf_file(leaves[dr["leaf_id"]],
+                                                         study_files)
+                        if not found:
+                            add("DOCREF_MISSING", ds, var["name"],
+                                "DocumentRef leaf %s points at %s, which is not in the study folder"
+                                % (dr["leaf_id"], leaves[dr["leaf_id"]]))
+        elif ot == "eDT":
+            if not var["origin_desc"].strip():
+                add("EDT_NO_SOURCE", ds, var["name"],
+                    "Origin is 'eDT' but no outside source is named")
+        elif ot == "Derived":
+            if not method_documented(var, methods):
+                add("SDTM_DERIVED_NO_METHOD", ds, var["name"],
+                    "Origin is 'Derived' but no MethodDef/description documents how")
+
     # stable ordering: by gap type, then dataset, then variable
     order = list(GAP_LABELS)
     gaps.sort(key=lambda g: (order.index(g["code"]), g["dataset"], g["variable"]))
@@ -458,6 +566,11 @@ th{background:#eaf0f7}
 .DERIVED_NO_METHOD{background:#f5cba7;color:#7e5109}
 .DANGLING_REF{background:#fadbd8;color:#943126}
 .NO_SDTM_PATH{background:#e8daef;color:#6c3483}
+.CRF_NO_DOCREF{background:#d6eaf8;color:#1a5276}
+.CRF_NO_PAGE{background:#d5f5e3;color:#1e8449}
+.DOCREF_MISSING{background:#f9e79f;color:#7d6608}
+.EDT_NO_SOURCE{background:#fad7a0;color:#935116}
+.SDTM_DERIVED_NO_METHOD{background:#d2b4de;color:#6c3483}
 #graph{background:#fff;border:1px solid #dfe6ef;border-radius:10px;
  overflow:auto;margin-top:6px}
 .node{cursor:pointer}
@@ -488,6 +601,7 @@ function showDetail(id){
  var h='<h3>'+v.key+'</h3>';
  h+='<div><span class="kv">Label:</span> '+v.label+'</div>';
  h+='<div><span class="kv">Origin:</span> '+v.origin+'</div>';
+ h+='<div><span class="kv">Raw source:</span> '+v.raw+'</div>';
  h+='<div><span class="kv">Method:</span> '+v.method+'</div>';
  h+='<div><span class="kv">Predecessors:</span> '+(v.preds.length?v.preds.join(', '):'<i>none</i>')+'</div>';
  h+='<div><span class="kv">Resolved via:</span> '+v.via+'</div>';
@@ -520,8 +634,58 @@ def node_id(key):
     return "n-" + key.replace(".", "-")
 
 
+def raw_source_desc(var, methods, leaves):
+    """Plain-English description of a variable's raw source, for the
+    report's detail panel."""
+    ot = var["origin_type"]
+    if ot == "CRF":
+        if not var["docrefs"]:
+            return "CRF, no annotated CRF link"
+        parts = []
+        for dr in var["docrefs"]:
+            href = leaves.get(dr["leaf_id"], "") if dr["leaf_id"] else ""
+            doc = os.path.basename(href) if href else "undefined leaf"
+            page = ("p. " + dr["page"]) if dr["has_page"] else "no page"
+            parts.append("%s (%s, %s)" % (dr["leaf_id"] or "?", doc, page))
+        return "CRF: " + "; ".join(parts)
+    if ot == "eDT":
+        return "eDT: " + (var["origin_desc"] or "no source named")
+    if ot == "Derived":
+        return "Derived: " + ("documented" if method_documented(var, methods)
+                              else "undocumented")
+    return "-"
+
+
+def coverage_stats(datasets, variables, methods, pred, gaps):
+    """((adam_covered, adam_total), (raw_covered, raw_total)).
+    ADaM coverage: variables with a predecessor chain reaching SDTM.
+    Raw-leg coverage: SDTM variables whose origin needs a raw source
+    (CRF, eDT, Derived, in a readable 2.x form) and that carry no raw-leg gap."""
+    adam_keys = [k for k, v in variables.items()
+                 if datasets[v["dataset"]]["role"] == "ADAM"]
+    adam_cov = sum(1 for k in adam_keys
+                   if reaches_sdtm(k, pred, variables, datasets))
+    raw_keys = [k for k, v in variables.items()
+                if datasets[v["dataset"]]["role"] != "ADAM"
+                and v["origin_type"] in ("CRF", "eDT", "Derived")]
+    raw_gap_vars = {g["dataset"] + "." + g["variable"] for g in gaps
+                    if g["code"] in RAW_GAP_CODES}
+    raw_cov = sum(1 for k in raw_keys if k not in raw_gap_vars)
+    return (adam_cov, len(adam_keys)), (raw_cov, len(raw_keys))
+
+
+def coverage_text(cov):
+    """Two short coverage lines for the console summary and the report."""
+    (adam_n, adam_d), (raw_n, raw_d) = cov
+    adam = ("%d of %d (%.1f%%)" % (adam_n, adam_d, 100.0 * adam_n / adam_d)
+            if adam_d else "n/a")
+    raw = ("%d of %d (%.1f%%)" % (raw_n, raw_d, 100.0 * raw_n / raw_d)
+           if raw_d else "n/a -- no SDTM variables with a readable origin")
+    return adam, raw
+
+
 def build_html(study_name, define_name, datasets, variables, methods, pred,
-               edges, gaps, xpt_vars, xpt_rows):
+               edges, gaps, xpt_vars, xpt_rows, coverage=None, leaves=None):
     esc = html_lib.escape
     n_vars = len(variables)
     n_edges = len(edges)
@@ -531,8 +695,21 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
         by_type[g["code"]] = by_type.get(g["code"], 0) + 1
 
     # ---- layout: one column per dataset (SDTM left, ADaM right) ----
+    # SDTM datasets that feed ADaM variables sit closest to the ADaM
+    # columns, so lineage edges cross empty space instead of other boxes.
     sdtm = sorted([n for n, d in datasets.items() if d["role"] == "SDTM"])
     adam = sorted([n for n, d in datasets.items() if d["role"] != "SDTM"])
+    adam_set = set(adam)
+
+    def _feeds_adam(ds):
+        for (a, b) in edges:
+            da, db = a.split(".", 1)[0], b.split(".", 1)[0]
+            if (da == ds and db in adam_set) or (db == ds and da in adam_set):
+                return True
+        return False
+
+    sdtm = ([d for d in sdtm if not _feeds_adam(d)]
+            + [d for d in sdtm if _feeds_adam(d)])
     cols = sdtm + adam
     NW, NH, VGAP, COLW, TOP, LEFT = 230, 30, 12, 300, 100, 40
     pos = {}   # varkey -> (x, y)
@@ -616,6 +793,7 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
                                      if v["method_oid"] else "-")),
             "preds": sorted(pred[k]["refs"]),
             "via": esc(pred[k]["via"]),
+            "raw": esc(raw_source_desc(v, methods, leaves or {})),
             "gaps": gaps_by_var.get(k, []),
         }
     for k in pos:
@@ -623,7 +801,7 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
             ds, vn = k.split(".", 1)
             var_info[node_id(k)] = {
                 "key": k, "label": "-", "origin": "not in define.xml",
-                "method": "-", "preds": [], "via": "none",
+                "method": "-", "preds": [], "via": "none", "raw": "-",
                 "gaps": gaps_by_var.get(k, []),
             }
 
@@ -638,6 +816,15 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
         '<div class="card %s"><div class="n">%d</div><div class="l">%s</div></div>'
         % (c, n, l) for l, n, c in cards)
 
+    if coverage is not None:
+        adam_txt, raw_txt = coverage_text(coverage)
+        cov_html = ("<p id='coverage' style='font-size:13px;color:#5b6b7f;"
+                    "margin:4px 0 0'>ADaM&rarr;SDTM lineage coverage: %s"
+                    " &nbsp;&middot;&nbsp; Raw&rarr;SDTM links: %s</p>"
+                    % (adam_txt, raw_txt))
+    else:
+        cov_html = ""
+
     type_rows = "".join(
         "<tr><td><span class='badge %s'>%s</span></td><td>%s</td><td>%d</td></tr>"
         % (code, esc(code), esc(GAP_LABELS[code]), by_type.get(code, 0))
@@ -647,7 +834,7 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
             "<title>Traceability report - %s</title><style>%s</style></head><body>"
             "<header><h1>Traceability report: %s</h1>"
             "<p>define.xml: %s &nbsp;|&nbsp; generated by trace.py</p></header><main>"
-            "<div class='cards'>%s</div>"
+            "<div class='cards'>%s</div>%s"
             "<h2>Gaps by type</h2><table><tr><th>Type</th><th>Meaning</th><th>Count</th></tr>%s</table>"
             "<h2>Gap details (%d)</h2>"
             "<table><tr><th>#</th><th>Type</th><th>Dataset</th><th>Variable</th><th>Detail</th></tr>%s</table>"
@@ -657,12 +844,12 @@ def build_html(study_name, define_name, datasets, variables, methods, pred,
             "Click a node to highlight its lineage.</div>"
             "<div id='graph'>%s</div><div id='detail'>"
             "<span class='kv'>Click a variable node to inspect its lineage.</span></div>"
-            "</main><footer>trace.py v1 prototype - variable-level lineage from "
+            "</main><footer>trace.py v1.1.0 - raw-to-ADaM lineage from "
             "define.xml + XPT</footer>"
             "<script>var VAR_INFO = %s;</script><script>%s</script>"
             "</body></html>"
             % (esc(study_name), CSS, esc(study_name), esc(define_name),
-               cards_html, type_rows, n_gaps, gap_table, svg_html,
+               cards_html, cov_html, type_rows, n_gaps, gap_table, svg_html,
                json.dumps(var_info), JS))
 
 
@@ -688,7 +875,8 @@ def main(argv=None):
 
     study = args.study
     define_path = find_define(study)
-    datasets, variables, methods = parse_define(define_path)
+    datasets, variables, methods, leaves = parse_define(define_path)
+    study_files = collect_study_files(study)
 
     xpt_files = find_xpt_files(study)
     xpt_vars, xpt_rows = {}, {}
@@ -702,14 +890,16 @@ def main(argv=None):
         xpt_rows[stem] = nrows
 
     pred = resolve_predecessors(datasets, variables, methods)
-    gaps = detect_gaps(datasets, variables, methods, pred, xpt_vars)
+    gaps = detect_gaps(datasets, variables, methods, pred, xpt_vars,
+                       leaves, study_files)
     edges = sorted({(v, r) for v, p in pred.items() for r in p["refs"]})
+    cov = coverage_stats(datasets, variables, methods, pred, gaps)
 
     with open(args.out, "w", encoding="utf-8") as f:
         f.write(build_html(os.path.basename(os.path.abspath(study)),
                            os.path.basename(define_path),
                            datasets, variables, methods, pred, edges, gaps,
-                           xpt_vars, xpt_rows))
+                           xpt_vars, xpt_rows, cov, leaves))
 
     # ---- console summary ----
     print("Study: %s" % study)
@@ -719,6 +909,9 @@ def main(argv=None):
         print("  XPT %-8s %3d vars %4d rows"
               % (stem, len(xpt_vars[stem]), xpt_rows[stem]))
     print("Lineage edges: %d" % len(edges))
+    adam_txt, raw_txt = coverage_text(cov)
+    print("ADaM lineage coverage: %s" % adam_txt)
+    print("Raw-leg coverage: %s" % raw_txt)
     print("Gaps: %d" % len(gaps))
     for g in gaps:
         print("  [%s] %s.%s -- %s"

@@ -46,9 +46,9 @@ python make_demo.py                                  # builds demo_study/
 python trace_agent.py --study demo_study --out demo_report.html
 ```
 
-`demo_study/` is a tiny synthetic study (SDTM DM + AE, ADaM ADSL) with five
+`demo_study/` is a tiny synthetic study (SDTM DM + AE + LB, ADaM ADSL) with ten
 deliberately planted gaps — see `demo_study/planted_gaps.txt`. The demo run
-should report all of them.
+should report all ten, with zero false positives.
 
 ## Gaps detected
 
@@ -59,6 +59,11 @@ should report all of them.
 | `DERIVED_NO_METHOD` | ADaM variable with Origin=`Derived` but no MethodDef/description |
 | `DANGLING_REF` | Derivation references a variable defined nowhere |
 | `NO_SDTM_PATH` | ADaM variable with no predecessor chain reaching SDTM |
+| `CRF_NO_DOCREF` | SDTM variable with Origin=`CRF` but no annotated CRF link (`DocumentRef`) |
+| `CRF_NO_PAGE` | Annotated CRF link (`DocumentRef`) names no page |
+| `DOCREF_MISSING` | Annotated CRF link points at a document not in the package |
+| `EDT_NO_SOURCE` | SDTM variable with Origin=`eDT` but no outside source named |
+| `SDTM_DERIVED_NO_METHOD` | SDTM variable with Origin=`Derived` but no derivation documented |
 
 ## How lineage is resolved
 
@@ -74,12 +79,16 @@ For each variable, predecessors are resolved from, in order:
 Explicit dotted references (`DM.AGE`) are authoritative; bare tokens only
 count when they uniquely match one known variable name.
 
-## Limitations (v1)
+## Limitations (v1.1.0)
 
-- Annotated CRF / protocol documents are not parsed; CRF origins are
-  recorded but not linked to pages.
-- `def:DocumentRef`, value-level metadata (`ValueListDef`), and ARM
-  (`arm:AnalysisResult`) are not yet followed.
+- The raw leg is link-level, not value-level: CRF origins are checked
+  against `def:DocumentRef` links (present? names a page? file in the
+  package?) and eDT origins against a named outside source, but raw values
+  are never compared.
+- Value-level metadata (`ValueListDef`) and ARM (`arm:AnalysisResult`)
+  are not yet followed.
+- Define-XML 1.0 files are not yet fully read: `Origin` and `Comment`
+  attributes are ignored (1.0 support is next).
 - Dataset role (SDTM vs ADaM) uses `def:Class`, falling back to an `AD*`
   name heuristic.
 - Reference extraction from derivation prose is heuristic text matching,
